@@ -1,0 +1,288 @@
+/* ==========================================================================
+   ericxu.xyz — business card
+   Palette + type borrowed from nousresearch.com (white paper, cyanotype blue,
+   Courier body, uppercase serif nav, dashed rules). Layout borrowed from
+   fauzanrahman.com (phone top-left, school top-right, name centred, info
+   line along the bottom).
+   ========================================================================== */
+
+:root {
+  --paper:     #ffffff;
+  --ink:       #0071a9;   /* nous body / link blue            */
+  --ink-deep:  #00547e;   /* nous dark blue, used for the name */
+  --rule:      #0071a9;
+
+  --font-mono:  "Courier Prime", "Courier New", Courier, monospace;
+  /* Nous uses the pixel-serif "Mondwest" for its nav, falling back to Times.
+     Drop a licensed Mondwest .woff2 in ./fonts and uncomment the @font-face
+     below to get the exact look; Times New Roman is the honest fallback. */
+  --font-serif: "Mondwest", "Times New Roman", Times, serif;
+
+  --card-width: 960px;
+}
+
+/* @font-face {
+  font-family: "Mondwest";
+  src: url("fonts/Mondwest-Regular.woff2") format("woff2");
+  font-weight: 400 800;
+  font-display: swap;
+} */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+::selection { background: var(--ink); color: var(--paper); }
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:focus-visible {
+  outline: 1px dashed var(--ink);
+  outline-offset: 4px;
+}
+
+p, h1 { margin: 0; }
+
+/* --------------------------------------------------------------------------
+   Page frame
+   -------------------------------------------------------------------------- */
+
+.page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem clamp(1.25rem, 4vw, 3rem) 3rem;
+}
+
+/* --------------------------------------------------------------------------
+   Nav — nous.com header: uppercase serif, evenly spaced, centred
+   -------------------------------------------------------------------------- */
+
+.nav {
+  width: min(100%, var(--card-width));
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem clamp(1.5rem, 4vw, 3.25rem);
+  padding: 0 0 1.25rem;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.nav__link { position: relative; padding: 0.25rem 0; }
+.nav__link--current { font-weight: 800; }
+.nav__link::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  border-bottom: 1px solid currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 160ms ease;
+}
+.nav__link:hover::after,
+.nav__link:focus-visible::after { transform: scaleX(1); }
+
+/* --------------------------------------------------------------------------
+   Card — sits between two dashed rules, like one nous.com section
+   -------------------------------------------------------------------------- */
+
+.card {
+  width: min(100%, var(--card-width));
+  min-height: min(560px, 72vh);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  border-top:    1px dashed var(--rule);
+  border-bottom: 1px dashed var(--rule);
+  padding: clamp(1.5rem, 4vw, 2.75rem) clamp(0.5rem, 3vw, 2.25rem);
+}
+
+/* Top row: phone left, school right */
+.card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.card__phone {
+  font-size: 15px;
+  padding-top: 0.2rem;
+}
+.card__phone a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.card__school { text-align: right; }
+.card__school-name {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: var(--ink-deep);
+}
+.card__school-sub {
+  margin-top: 0.35rem;
+  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 0.5rem;
+  row-gap: 0.2rem;
+}
+.card__school-sub .group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 0.5rem;
+  white-space: nowrap;
+}
+
+/* Centre: name + email */
+.card__center {
+  align-self: center;
+  text-align: center;
+  padding: 2.5rem 0;
+}
+
+.card__name {
+  font-family: var(--font-serif);
+  font-size: clamp(38px, 6.2vw, 62px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--ink-deep);
+  /* nudge so the trailing tracking doesn't push it off-centre */
+  padding-left: 0.08em;
+}
+
+.card__email {
+  margin-top: 0.9rem;
+  font-size: 17px;
+}
+.card__email a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.card__email a:hover { color: var(--ink-deep); }
+
+/* Bottom row: single info line */
+.card__bottom { text-align: center; }
+
+.card__line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 0.75rem;
+  row-gap: 0.5rem;
+  font-size: 15px;
+}
+.card__line .group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 0.75rem;
+  row-gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.sep { opacity: 0.55; }
+.slash { opacity: 0.55; padding: 0 0.1em; }
+
+.card__resume {
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.card__resume:hover { color: var(--ink-deep); }
+
+/* --------------------------------------------------------------------------
+   Stamp — "OUTPUT / SEED" label, nous.com motif
+   -------------------------------------------------------------------------- */
+
+.stamp {
+  width: min(100%, var(--card-width));
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.9rem;
+  font-size: 12px;
+  line-height: 1.35;
+  text-transform: uppercase;
+  user-select: none;
+}
+.stamp__text { display: flex; flex-direction: column; align-items: flex-end; }
+.stamp__glyph { flex: none; color: var(--ink); }
+
+/* --------------------------------------------------------------------------
+   Mid widths — bottom line becomes two centred rows, no dangling separator
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 980px) {
+  .card__line { flex-direction: column; align-items: center; }
+  .card__line .sep--group { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Small screens — everything stacks and centres
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .card {
+    min-height: min(500px, 68vh);
+    padding-inline: 0.25rem;
+  }
+  .card__top {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+  }
+  .card__school { text-align: center; }
+  .card__school-name { font-size: 20px; }
+  .card__school-sub { flex-direction: column; align-items: center; }
+  .card__school-sub .group { justify-content: center; }
+  .card__school-sub .sep--group { display: none; }
+  .card__center { padding: 2rem 0; }
+  .card__line .group { flex-direction: column; align-items: center; }
+  .card__line .sep { display: none; }
+  .stamp { justify-content: center; }
+  .stamp__text { align-items: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav__link::after { transition: none; }
+}
+
+@media print {
+  .nav, .stamp { display: none; }
+  .page { padding: 0; min-height: auto; }
+  .card { min-height: 3.5in; }
+}
