@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Eric Xu</title>
-  <meta name="description" content="Eric Xu — CS & Applied Math at Brown University. Software engineer and machine learning researcher.">
+  <meta name="description" content="Eric Xu. CS and Applied Math at Brown University. Software engineer and machine learning researcher.">
   <meta name="theme-color" content="#ffffff">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,14 +21,15 @@
 
   <div class="page">
 
-    <!-- Nav row — Nous-style uppercase serif links above the rule. EDIT hrefs as needed. -->
+    <!-- Nav row, nous.com-style uppercase serif links above the rule. EDIT hrefs as needed. -->
     <nav class="nav" aria-label="Links">
       <a class="nav__link nav__link--current" href="/" aria-current="page">Home</a>
+      <a class="nav__link" href="projects.html">Projects</a>
       <a class="nav__link" href="https://github.com/ericxu88" target="_blank" rel="noopener">GitHub</a>
       <a class="nav__link" href="https://linkedin.com/in/ericxu88" target="_blank" rel="noopener">LinkedIn</a>
     </nav>
 
-    <!-- The card — Fauzan-style business-card formatting between two dashed rules. -->
+    <!-- The card: Fauzan-style business-card formatting between two dashed rules. -->
     <main class="card" aria-label="Business card">
 
       <header class="card__top">
@@ -40,7 +41,7 @@
           <p class="card__school-name">Brown University</p>
           <p class="card__school-sub">
             <span class="group">
-              <span class="item">CS–Applied Mathematics</span>
+              <span class="item">CS-Applied Mathematics</span>
               <span class="sep" aria-hidden="true">|</span>
               <span class="item">GPA: 4.0/4.0</span>
             </span>
@@ -64,7 +65,7 @@
           <span class="group">
             <span class="item">Providence, RI <span class="slash">/</span> Atlanta, GA</span>
             <span class="sep" aria-hidden="true">|</span>
-            <span class="item">SWE Intern at Capital One</span>
+            <span class="item">Prev. SWE Intern at Capital One</span>
           </span>
           <span class="sep sep--group" aria-hidden="true">|</span>
           <span class="group">
@@ -77,31 +78,6 @@
 
     </main>
 
-    <!-- Nous-style output stamp. Purely decorative; seed regenerates on each load. -->
-    <aside class="stamp" aria-hidden="true">
-      <svg class="stamp__glyph" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="9.5"/>
-        <ellipse cx="12" cy="12" rx="4" ry="9.5"/>
-        <line x1="2.5" y1="12" x2="21.5" y2="12"/>
-        <path d="M4.2 7.2h15.6M4.2 16.8h15.6"/>
-      </svg>
-      <span class="stamp__text">
-        <span>OUTPUT 01</span>
-        <span>SEED: <span id="seed">0000000000</span></span>
-      </span>
-    </aside>
-
   </div>
-
-  <script>
-    // Random 10-digit seed, a nod to the "OUTPUT / SEED" labels on nousresearch.com.
-    (function () {
-      var el = document.getElementById('seed');
-      if (!el) return;
-      var n = '';
-      for (var i = 0; i < 10; i++) n += Math.floor(Math.random() * 10);
-      el.textContent = n.replace(/^0/, '1');
-    })();
-  </script>
 </body>
 </html>

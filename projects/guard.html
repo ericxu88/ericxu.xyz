@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GUARD</title>
+  <meta name="description" content="GUARD: GPU-native, unsupervised drift and anomaly monitoring for PyTorch inference.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="page page--top">
+
+    <nav class="nav" aria-label="Links">
+      <a class="nav__link" href="../">Home</a>
+      <a class="nav__link nav__link--current" href="../projects.html">Projects</a>
+      <a class="nav__link" href="https://github.com/ericxu88" target="_blank" rel="noopener">GitHub</a>
+      <a class="nav__link" href="https://linkedin.com/in/ericxu88" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+
+    <main class="paper">
+
+      <header class="paper__head">
+        <p class="paper__kicker">Output 02</p>
+        <h1 class="paper__title">GUARD</h1>
+        <p class="paper__sub">GPU-native, unsupervised drift and anomaly monitoring for PyTorch inference.</p>
+        <p class="paper__byline">Eric Xu<span class="dot">·</span>2026</p>
+        <p class="paper__meta">Python<span class="dot">·</span>CUDA<span class="dot">·</span>Apache-2.0<span class="dot">·</span>498 tests</p>
+        <p class="paper__links">
+          <a href="https://github.com/ericxu88/GUARD" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/ericxu88/GUARD/blob/main/docs/GUARD_design.md" target="_blank" rel="noopener">Design doc</a>
+        </p>
+      </header>
+
+      <section class="paper__hero">
+        <figure class="fig">
+<pre class="code">inference stream (normal priority)
+  forward() -> copy into ring -> event
+                                  |
+                      wait on event
+                                  v
+monitor stream (low priority)
+  detector kernels -> few floats
+  async D2H every K steps
+  CPU thread: windows, Page-Hinkley
+  / CUSUM -> Prometheus / OTel</pre>
+          <figcaption>Two CUDA streams. <code>observe()</code> runs on the inference thread and only enqueues work; there is no <code>.item()</code>, <code>.cpu()</code> or <code>synchronize()</code> anywhere on that path.</figcaption>
+        </figure>
+        <div>
+          <h2 class="hero__title"><span>Abstract</span></h2>
+          <div class="sec__body">
+            <p>GUARD watches a serving model for distribution shift without labels and without taking outputs off the GPU. Detector kernels run on a separate low-priority CUDA stream, so they execute in whatever SM capacity inference leaves idle, and only a few floats per step cross to the host, batched and asynchronous.</p>
+            <p>It compares live behaviour against a baseline computed offline from known-good data, and raises an alert when an online change-point test decides the departure is real rather than noise. It attaches to an existing PyTorch model through a forward hook. The weights are never touched.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Why</span></h2>
+        <div class="sec__body">
+          <p>Models in production degrade quietly. Inputs drift, the mix of predicted classes shifts, individual predictions get less confident, and the serving dashboards look fine the whole time because the model still returns something.</p>
+          <p>The usual ways of catching this each have a problem. Copying logits and embeddings to the CPU and computing metrics there puts latency and host memory pressure on the request path. Sampling one percent of traffic misses rare anomalies, which are the point. Nightly batch jobs over logged outputs find drift hours late and need every output stored. GUARD computes on every output, in real time, on the device the data already lives on. The design target is a p99 latency increase under 2%, and the repo includes the Nsight harness to verify the overlap instead of assuming it.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>What it detects</span></h2>
+        <div class="sec__body">
+          <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Signal</th><th>Failure mode</th></tr></thead>
+            <tbody>
+              <tr><td>Shannon entropy: window mean, tail quantile, distance to the baseline histogram</td><td>Confidence collapse, per-sample OOD</td></tr>
+              <tr><td>KL and JS divergence against the baseline class distribution</td><td>Prior / label shift</td></tr>
+              <tr><td>Mahalanobis distance, streaming mean and covariance drift</td><td>Covariate shift</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <p>Each metric stream feeds an online change-point test, Page-Hinkley or CUSUM, with debounce and cooldown, so a single odd batch doesn't page anyone. Thresholds are keyed by metric name and have to be calibrated against your own clean traffic; the shipped values are illustrative and the runbook has a procedure for it.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>How it works</span></h2>
+        <div class="sec__body">
+          <p>The part that took the most care is the ring-buffer copy. It's issued on the inference stream, not the monitor stream. <code>record_stream</code> alone isn't enough here: it defers reuse of memory the caching allocator frees, but CUDA-graph replay, <code>torch.compile(mode="reduce-overhead")</code>, TensorRT bindings and pre-allocated <code>out=</code> buffers all rewrite the same addresses every iteration without the allocator being involved. Copying in the caller's stream orders the capture against both the forward pass and the next overwrite. Inference pays two small device-to-device copies for that guarantee.</p>
+          <p>Slot reuse works the other way around: the inference stream waits on the slot's completion event before overwriting it. At the default ring depth that event has long since completed, so the wait is free in practice.</p>
+          <p>Detector kernels read from the ring on the low-priority stream, write a few floats into a summary buffer, and every K steps the summaries go to the host asynchronously through a fixed pool of pinned buffers. A CPU aggregation thread keeps the windows, runs the change-point tests, and exports to Prometheus or OpenTelemetry. Baselines are versioned artifacts bound to a model version, checksummed on write and verified on load.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Failure isolation</span></h2>
+        <div class="sec__body">
+          <p>Monitoring is best-effort and cannot affect serving. That is a rule, not a hope.</p>
+          <ul>
+            <li>Every detector call runs behind an exception firewall. A detector that raises is logged once and disabled after N failures; its metric column becomes NaN and the aggregator skips it. <code>forward()</code> returns normally.</li>
+            <li>Fixed ring buffer, fixed baselines, fixed pool of pinned host buffers. Nothing allocates per request.</li>
+            <li>When the export path falls behind, summaries are dropped and counted. Backpressure is never applied to inference.</li>
+            <li>Malformed input (wrong shape, wrong device, oversized batch, active graph capture) is dropped and counted.</li>
+            <li>Kill switch: <code>GUARD_DISABLED=1</code> in the environment, or <code>monitor.disable()</code> at runtime.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Usage</span></h2>
+        <div class="sec__body">
+<pre class="code">from guard import Config, GuardModule, PrometheusExporter, build_monitor, load
+
+baseline = load("baselines/vit-b16.guard", expected_model_version="vit-b16@abc123")
+config   = Config.from_yaml("guard.yaml")
+exporter = PrometheusExporter()
+
+monitor = build_monitor(baseline, config, max_batch=64, device="cuda", sink=exporter)
+exporter.start_http_server(config.export.prometheus_port)
+
+model = GuardModule(model, monitor, embed_layer="encoder.ln", embed_reduce="cls")
+
+logits = model(images)     # monitored; same output, same code path</pre>
+          <p><code>GuardModule</code> registers a forward hook on the named layer to capture the penultimate embedding and reads logits from the return value. If you drive the loop yourself, skip the wrapper and call <code>monitor.observe(logits, embeddings)</code> after <code>forward()</code>. A baseline is built offline from an iterable of (logits, embeddings) batches; calibrate on substantially more samples than the embedding dimension or the reference covariance is ill-conditioned.</p>
+          <p>GUARD runs in-process with the inference server. There is no GUARD service and nothing of GUARD's on the request path. One monitor per device, metrics per process, so scrape per-pod endpoints. The <code>deploy/</code> directory has a reference Dockerfile, Kubernetes manifests, a Grafana dashboard and Alertmanager rules.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Testing and benchmarks</span></h2>
+        <div class="sec__body">
+          <p>480 tests run without a GPU and 18 run on hardware. The stream and event layer degrades to no-ops off CUDA, so slot rotation, drain batching, buffer exhaustion, failure isolation and concurrency are all covered by the CPU suite. One test drives the engine through a recording stand-in for <code>torch.cuda</code> and asserts the ordering contract the memory-safety argument depends on. Detectors are checked against independent NumPy references and property-tested with Hypothesis, and a drift-injection test runs clean, gradual, abrupt, recovery and asserts that alerts both fire and clear.</p>
+          <p>Overhead depends on how much SM capacity inference leaves idle, so it has to be measured on your model and your hardware. <code>ab_latency.py</code> reports p50, p95 and p99 deltas with GUARD off and on, timed with CUDA events in interleaved A/B blocks, and exits non-zero if the overhead exceeds an SLO, so it can gate CI. <code>saturation.py</code> sweeps batch size to show where the overlap stops being free, and <code>nsight_overlap.sh</code> captures the timeline that confirms monitor kernels interleave with inference rather than serialising after it.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Limitations</span></h2>
+        <div class="sec__body">
+          <ul>
+            <li>Drift is not accuracy loss. GUARD detects behavioural change, which usually but not always means degradation. Pair it with periodic labelled evaluation.</li>
+            <li>A stale baseline alarms on legitimate evolution; a too-fresh one masks real drift. Re-baselining is a human-approved workflow, not an automatic one.</li>
+            <li>The change-point tests are one-sided. They catch metrics rising, which is the direction drift moves them. A shift that reduces entropy will not trip the entropy test.</li>
+            <li>Observations during CUDA graph capture are dropped. Per-step hooks can't fire inside a captured graph.</li>
+            <li>Not implemented: Triton and TorchServe adapters, ADWIN, MMD with random Fourier features, multi-GPU validation.</li>
+          </ul>
+        </div>
+      </section>
+
+      <p class="paper__foot"><a href="../projects.html">&larr; All projects</a></p>
+
+    </main>
+  </div>
+</body>
+</html>

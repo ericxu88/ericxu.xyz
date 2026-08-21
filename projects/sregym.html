@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SREGym</title>
+  <meta name="description" content="SREGym: a procedurally generated incident-response environment for LLM agents, with a deterministic verifier and measured results.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="page page--top">
+
+    <nav class="nav" aria-label="Links">
+      <a class="nav__link" href="../">Home</a>
+      <a class="nav__link nav__link--current" href="../projects.html">Projects</a>
+      <a class="nav__link" href="https://github.com/ericxu88" target="_blank" rel="noopener">GitHub</a>
+      <a class="nav__link" href="https://linkedin.com/in/ericxu88" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+
+    <main class="paper">
+
+      <header class="paper__head">
+        <p class="paper__kicker">Output 01</p>
+        <h1 class="paper__title">SREGym</h1>
+        <p class="paper__sub">A procedurally generated incident-response environment for LLM agents.</p>
+        <p class="paper__byline">Eric Xu<span class="dot">·</span>August 2026</p>
+        <p class="paper__meta">Python<span class="dot">·</span>Apache-2.0<span class="dot">·</span>178 tests<span class="dot">·</span>Active</p>
+        <p class="paper__links">
+          <a href="https://github.com/ericxu88/SREGym" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://app.primeintellect.ai/dashboard/environments/ericxu88/sregym-env" target="_blank" rel="noopener">Environments Hub</a>
+        </p>
+      </header>
+
+      <section class="paper__hero">
+        <figure class="fig">
+<pre class="code">[PagerDuty] INCIDENT #4710 - P1
+Service:    checkout-service (prod)
+Escalation: payments-oncall -> you
+Title:      HTTP 5xx error rate > 10%
+            (current 95.2%)
+Triggered:  2026-08-19 00:29:25 UTC
+            (held 5m before paging)
+Details:    firing since 00:29 UTC;
+            symptom start ~00:23 UTC
+Support:    "spike of tickets: checkout
+            spinner then an error toast"</pre>
+          <figcaption>What the agent gets paged with. The page never names the cause.</figcaption>
+        </figure>
+        <div>
+          <h2 class="hero__title"><span>Abstract</span></h2>
+          <div class="sec__body">
+            <p>SREGym tests whether an LLM agent can actually hold an on-call shift. Every episode builds a small but complete production stack on local disk: a FastAPI service, SQLite databases, a git repo with a plausible history, nginx, systemd and cron config, and hours of logs and metrics that agree with each other. A known fault gets injected, the agent gets paged, and a deterministic verifier decides whether it fixed the real root cause without breaking anything else. There is no LLM judge anywhere in the loop.</p>
+            <p>Worlds are procedural, so seeds are reproducible and they don't repeat: 10 fault templates plus two-fault compositions, three difficulty profiles, and 8 stack identities. It ships with Anthropic and OpenAI-compatible adapters, a scripted reference solver, a sweep runner, and a verifiers taskset published on Prime Intellect's Environments Hub.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>What the agent sees</span></h2>
+        <div class="sec__body">
+          <p>The agent gets the page above, a support note, and a system prompt that covers the host layout, the tools, and what counts as a good resolution. Both prompts are stored in the trajectory. From there it has seven tools and a step budget.</p>
+          <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Tool</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><code>read_logs</code></td><td>paginated, 50 lines max per call, cursors, regex grep, since/until, tail</td></tr>
+              <tr><td><code>query_metrics</code></td><td>per-minute series: requests by method/path/status, latency, db errors, up, derived error rate</td></tr>
+              <tr><td><code>read_file</code></td><td>numbered lines</td></tr>
+              <tr><td><code>edit_file</code></td><td>exact-string replace, returns a diff; log files are read-only</td></tr>
+              <tr><td><code>run_shell</code></td><td>allow-listed: inspection commands, git (no reset, clean or push), read-only sqlite3, curl to 127.0.0.1. Pipes are fine, redirection and substitution are not</td></tr>
+              <tr><td><code>restart_service</code></td><td>systemctl-style; a restart re-reads <code>.env</code></td></tr>
+              <tr><td><code>resolve_incident</code></td><td>terminal; the agent submits a postmortem</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <p>During the episode the service is really running as a uvicorn subprocess. Synthetic traffic keeps flowing at about 1.5 requests per second, a collector scrapes <code>/metrics</code> every 10 seconds, and a real cron daemon runs the deployed jobs. The process starts with a clean environment, so a restart is required to pick up config changes. A lot of episodes go wrong right there.</p>
+          <p>Here is the scripted solver on seed 42, abridged:</p>
+<pre class="code">$ sregym run --seed 42 --agent scripted
+[sregym] world at /tmp/sregym-42-vb6dyrff (port 53264); fault=env_var_typo seed=42
+[step 1]  read_logs() -> 'Available log files ...'
+[step 3]  read_logs(path='checkout-service/logs/app.log', grep='checkout\.access.* 5\d\d ', tail=True)
+          -> '... 1688 matching lines ...'
+[step 5]  read_logs(path='checkout-service/logs/deploy.log', tail=True)
+          -> '... deploy b25be1a requested by David Guzman ...'
+[step 7]  run_shell(command='git -C checkout-service show HEAD')
+          -> '... -DATABASE_URL=... +DATABSAE_URL=... '
+[step 10] edit_file(path='checkout-service/.env', old_string='DATABSAE_URL=...', new_string='DATABASE_URL=...')
+[step 11] restart_service() -> '... Health: GET /health -> 200'
+[step 16] resolve_incident(summary="Deploy of HEAD changed checkout-service/.env: ...")
+symptom_resolved=PASS  root_cause_fixed=PASS  no_collateral_damage=PASS  reward=1.00</pre>
+          <p>The scripted solver is a solvability oracle, not a benchmark. It scores 1.0 on every seed, and its <code>mask</code>, <code>workaround</code>, <code>noop</code> and <code>sloppy</code> modes exercise the failure cases the verifier has to tell apart.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>What gets generated</span></h2>
+        <div class="sec__body">
+          <p>The world generator seeds a few hundred users and thousands of orders and payments into SQLite, then renders the app source from templates with feature sections, so each of the roughly nine commits in the git history plausibly adds its feature. The history generator drives one simulated request stream into the app log, the nginx logs, the metrics and the database together, which is what makes the evidence agree with itself. It includes noise on purpose: 404s, a slow-query burst, health probes, cron output, old deploys.</p>
+<pre class="code">&lt;world&gt;/
+  .sregym/              control plane: world.json, spec.json (the answer), manifest.json
+                        sibling of host/, unreachable by the tools
+  host/                 what the agent operates on
+    checkout-service/   git repo, ~9 commits over 90 days (name varies per seed)
+      .env  checkout/*.py  migrations/  scripts/  data/*.db  logs/
+    etc/nginx  etc/systemd  etc/cron.d  var/log/nginx/  metrics/series.jsonl</pre>
+          <p>The answer key lives next to the host root, not inside it, and the tools can't reach it. I tested that against <code>grep -r</code>, globs, <code>..</code> and absolute paths. Timestamps are real wall-clock UTC, so the live logs continue from the generated history without a seam.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Faults</span></h2>
+        <div class="sec__body">
+          <p>A template implements <code>inject(world, seed) -&gt; VerificationSpec</code>: three declarative check lists (symptom, root cause, collateral) plus an incident timeline. The verifier only interprets check types, so templates never touch the verifier.</p>
+          <ul>
+            <li><code>env_var_typo</code>. A config deploy typo'd a database env var, either the value or the key name. Key typos silently fall back to a dev default. Fix the line and restart.</li>
+            <li><code>ledger_divergence</code>. <code>LEDGER_DATABASE_URL</code> points at a stale audit snapshot. Nothing errors; payments land in the wrong file and a freshness metric pages. A full fix restores the URL, restarts, and backfills the diverted payments with the repo's reconcile script. Config plus restart alone scores 0.7.</li>
+            <li><code>unapplied_migration</code>. A release needs a schema migration nobody ran. In 30% of seeds the migration file was never committed and has to be written. Reverting the release counts as a workaround.</li>
+            <li><code>cron_write_lock</code>. A backfill job on <code>* * * * *</code> holds the DB write lock for 20 to 40 seconds per run, so checkouts fail in bursts aligned to the minute. There's no deploy to blame. Verification probes for 65 seconds so a restart-only fix gets caught by the next burst.</li>
+            <li><code>db_file_permissions</code>. The config-management agent chmod'd the data path read-only. Reads work, writes 500. The trail is <code>fleetd.log</code> and <code>ls -la</code>.</li>
+            <li><code>bad_dependency_pin</code>. A bumped internal package removed an API; the service crash-loops and stays down, with real captured tracebacks and 502s at the edge. Rollback and fix-forward are both accepted. Incoherent mixtures are not.</li>
+            <li><code>rate_limit_misconfig</code>. The per-user checkout rate limit got set to 1 to 3 per minute ("clamp to 100" says the commit message). Zero 5xx; legitimate retry bursts get 429. Verified with a six-request burst probe.</li>
+            <li><code>disk_full</code>. A capacity-guardrail deploy set the DB page quota below the database's current size, so every write fails with a genuine "database or disk is full" while <code>df</code> shows plenty of space. Real ENOSPC needs privileged mounts, and a faked error string would be reward-hackable, so the quota produces the real error live.</li>
+            <li><code>stale_secret</code>. A quarterly rotation also rotated the webhook secret shared with the payment gateway. Settlement webhooks 401 and settlements quietly stop while checkouts keep working. Restore the old secret from git history. Bypassing signature validation in code is caught.</li>
+            <li><code>truncated_env</code>. deploy-bot died mid-write and left <code>.env</code> truncated on disk; git has the good copy. Everything below the cut falls back to dev defaults, and because <code>LOG_PATH</code> is gone, app.log goes dark at exactly the restart. The missing traceback is the clue. Restoring only the DB lines leaves dev secrets in prod and counts as incomplete.</li>
+          </ul>
+          <p>Composition puts two faults in one world with one page. The vetted pairs are migration+perms (the migration can't apply until the write bit is back), ratelimit+perms, and migration+cron. Checks are member-prefixed so reports show partial progress, but the reward is all or nothing.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Verifier and reward</span></h2>
+        <div class="sec__body">
+          <p>The verifier is deterministic and runs against the live world at the end of the episode. It asks three questions.</p>
+          <ul>
+            <li><code>symptom_resolved</code>: live probes. Health returns 200, a synthetic checkout returns 201, reads return 200.</li>
+            <li><code>root_cause_fixed</code>: the specific broken thing is correct again, the app code is unchanged (hardcoding around the problem is not a fix), and nothing was moved to match a typo.</li>
+            <li><code>no_collateral_damage</code>: file hashes match the manifest minus allowed files, DB rows and schema are intact (additive changes are fine), logs aren't truncated, git history is intact, and no destructive command succeeded. That last one is judged on command structure, never on quoted text.</li>
+          </ul>
+          <p>Reward is 1.0 if all three hold. Otherwise it's 0.3 for the symptom plus 0.7 for the root cause, halved on collateral damage. So a restart-only fix scores 0.0, a hardcoded workaround 0.15, a correct fix where the agent forgot to restart 0.7, and a correct fix plus an unrelated edit 0.5.</p>
+          <p>Three rubric principles came out of calibrating this: accept every coherent end state, treat the root cause as the narrowest causal object, and when a template fails uniformly across seeds, suspect the rubric before the model.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Results</span></h2>
+        <div class="sec__body">
+          <p>Everything below is from <code>sregym sweep</code> with claude-sonnet-5 and the lean prompt, seeds 1 to 20 (the env_var_typo baseline used seeds 1 to 200). Cost is Anthropic list price with prompt caching. Intervals are Wilson 95%.</p>
+          <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Template</th><th>Budget</th><th>Success</th><th>95% CI</th><th>$/ep</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>env_var_typo</td><td class="num">10</td><td class="num">58.0% (116/200)</td><td class="num">51-65%</td><td class="num">$0.09</td><td>47 fixed_not_restarted, 37 never_found</td></tr>
+              <tr><td>ledger_divergence</td><td class="num">22</td><td class="num">65% (13/20)</td><td class="num">43-82%</td><td class="num">$0.19</td><td>85% at 30 steps</td></tr>
+              <tr><td>unapplied_migration</td><td class="num">12</td><td class="num">55% (11/20)</td><td class="num">34-74%</td><td class="num">$0.11</td><td>100% at 30 steps</td></tr>
+              <tr><td>cron_write_lock</td><td class="num">30</td><td class="num">95% (19/20)</td><td class="num">76-99%</td><td class="num">$0.33</td><td>heaviest template, ~28 steps</td></tr>
+              <tr><td>db_file_permissions</td><td class="num">30</td><td class="num">95% (19/20)</td><td class="num">76-99%</td><td class="num">$0.28</td><td>data-dir variant is hardest (80%)</td></tr>
+              <tr><td>bad_dependency_pin</td><td class="num">30</td><td class="num">100% (20/20)</td><td class="num">84-100%</td><td class="num">$0.15</td><td>every run chose fix-forward</td></tr>
+              <tr><td>rate_limit_misconfig</td><td class="num">30</td><td class="num">100% (20/20)</td><td class="num">84-100%</td><td class="num">$0.18</td><td></td></tr>
+              <tr><td>disk_full</td><td class="num">30</td><td class="num">95% (19/20)</td><td class="num">76-99%</td><td class="num">$0.25</td><td>1 fixed on the last step, no restart left</td></tr>
+              <tr><td>stale_secret</td><td class="num">30</td><td class="num">100% (20/20)</td><td class="num">84-100%</td><td class="num">$0.25</td><td></td></tr>
+              <tr><td>truncated_env</td><td class="num">30</td><td class="num">100% (20/20)</td><td class="num">84-100%</td><td class="num">$0.20</td><td></td></tr>
+              <tr><td>composed (2 faults)</td><td class="num">20</td><td class="num">30% (6/20)</td><td class="num">15-52%</td><td class="num"></td><td>all failures never_found</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <p>Budgets are the main difficulty lever for frontier models. On env_var_typo, Sonnet 5 goes 100% at 30 steps, 95% at 12, 65% at 10 and 15% at 8. As the budget shrinks, failures shift from fixed_not_restarted to never_found. Prompt verbosity made no difference. Opus 5 also went 20/20 at 30 steps, at about $0.26 per episode.</p>
+          <p>bad_dependency_pin's first measurement came back 0/20, every episode scored as a workaround. All twenty had migrated the callers to the new API instead of rolling the pin back. The unanimity was the tell: the model was right and my rubric was too opinionated. The verifier now accepts either coherent end state, rollback or fix-forward, and the re-measure is the 100% row above. The same calibration pass caught two verifier false positives, a regex matching commit-message text and a path matching a git-checkout heuristic. <code>sregym rescore</code> re-judged the saved results without re-running any models.</p>
+          <p>Composition is the first configuration where difficulty comes from scope rather than time pressure. Of the 14 failures at 20 steps, 8 had fully fixed exactly one of the two faults and 6 had fixed neither. Per pair: ratelimit+perms 5/8, migration+perms 1/4, migration+cron 0/8.</p>
+          <p>The difficulty profiles set the step budget (30, 20 or 12) and add 0, 2 or 4 seeded red herrings: a decoy config deploy with a deferred restart, a decoy cron entry, a bot scanning for 404s, and an <code>#incidents</code> chatter block with plausible wrong theories. Herrings only add noise, they never remove evidence. On two templates that were 95 to 100% at baseline, standard and hard came out at 60% and 50% for db_file_permissions and 25% for bad_dependency_pin at hard, mostly never_found. The budget does most of that work: Sonnet 5 spends 0.0 to 0.1 calls per episode on the decoys. I expect the herrings matter more for weaker models and for composition.</p>
+          <p>Stack variation turned out to be difficulty-neutral, which was the goal. Every world draws one of 8 identities from its seed: service name, Python package, database filenames, and API route prefix. The identity is consistent through the git history, logs, metrics labels, live process, tool docs and verifier probes, so there's no single checkout-service playbook to memorize. Paired against the classic identity on 40 seeds the varied worlds scored 57.5% vs 70%, but that gap is run-to-run variance: the 7 seeds that drew the classic identity both times swung from 6/7 to 2/7 on identical worlds, and the varied rate lands on the 200-seed baseline of 58%.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Using it</span></h2>
+        <div class="sec__body">
+          <p>Needs Python 3.10 or newer, <code>git</code> and <code>sqlite3</code>. No Docker required, though there is a Dockerfile for models you trust less than the tool sandbox.</p>
+<pre class="code">uv venv --python 3.12 .venv &amp;&amp; uv pip install --python .venv/bin/python -e ".[dev]"
+source .venv/bin/activate
+
+sregym run --seed 42 --agent scripted                    # offline demo, no API key, ~4s
+sregym run --seed 42 --agent anthropic --model claude-opus-5 --max-steps 30
+sregym sweep --seeds 1-200 --model claude-sonnet-5 --concurrency 4 --out sweeps/run1
+sregym report sweeps/run1
+sregym generate --seed 7 --serve --reveal                 # poke at a world by hand</pre>
+          <p>Sweeps run seeds concurrently, resume cleanly, retry infrastructure failures with backoff without counting them as model failures, and run each episode in a subprocess with a hard deadline so a hung API read can't stall the run. The report has the success rate with its interval, a failure taxonomy, per-variant and per-herring breakdowns, and cost.</p>
+          <p>The Environments Hub package wraps all of this as a native verifiers taskset. Each rollout gets its own MCP tool server that owns a live world and exposes exactly the SREGym toolset; verification runs inside that server while the service is still up.</p>
+<pre class="code">prime env install ericxu88/sregym-env
+validate sregym-env -n 2
+eval sregym-env -n 5 -m &lt;model&gt; --env.taskset.difficulty standard</pre>
+          <p>Don't pair the taskset with a shell-bearing harness. A raw shell bypasses the sandbox that the collateral scoring depends on.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Limitations</span></h2>
+        <div class="sec__body">
+          <ul>
+            <li>Without Docker, the sandbox is an allow-list plus path confinement, and the collateral checks are the real safety net. Don't point an untrusted agent at a host you care about.</li>
+            <li>nginx and deploy-bot exist as config and logs only; the agent hits the uvicorn upstream directly. Cron and the service are real processes.</li>
+            <li>Metrics are a JSONL store, scraped from the app's real Prometheus-format <code>/metrics</code> endpoint.</li>
+            <li>The business domain is always an e-commerce checkout flow, and table and column names are deliberately not varied. They have low memorization value and a large verifier surface.</li>
+          </ul>
+        </div>
+      </section>
+
+      <p class="paper__foot"><a href="../projects.html">&larr; All projects</a></p>
+
+    </main>
+  </div>
+</body>
+</html>

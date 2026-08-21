@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mimir</title>
+  <meta name="description" content="mimir: a statistically rigorous experiment harness for LLMs and other stochastic systems.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="page page--top">
+
+    <nav class="nav" aria-label="Links">
+      <a class="nav__link" href="../">Home</a>
+      <a class="nav__link nav__link--current" href="../projects.html">Projects</a>
+      <a class="nav__link" href="https://github.com/ericxu88" target="_blank" rel="noopener">GitHub</a>
+      <a class="nav__link" href="https://linkedin.com/in/ericxu88" target="_blank" rel="noopener">LinkedIn</a>
+    </nav>
+
+    <main class="paper">
+
+      <header class="paper__head">
+        <p class="paper__kicker">Output 03</p>
+        <h1 class="paper__title">mimir</h1>
+        <p class="paper__sub">A statistically rigorous experiment harness for LLMs and other stochastic systems.</p>
+        <p class="paper__byline">Eric Xu<span class="dot">·</span>August 2026</p>
+        <p class="paper__meta">Python<span class="dot">·</span>Apache-2.0<span class="dot">·</span>v0.1.0</p>
+        <p class="paper__links">
+          <a href="https://github.com/ericxu88/mimir" target="_blank" rel="noopener">GitHub</a>
+        </p>
+      </header>
+
+      <section class="paper__hero">
+        <figure class="fig">
+          <div class="fig__ink"><img src="../assets/mimir-well.jpg" alt="Ink drawing of a tree growing beside a stone well" width="640" height="554"></div>
+          <figcaption>Mímisbrunnr, the well under the world tree.</figcaption>
+        </figure>
+        <div>
+          <h2 class="hero__title"><span>Abstract</span></h2>
+          <div class="sec__body">
+            <p>In Norse mythology, Mimir guarded the well of wisdom beneath the world tree. Odin gave up an eye for a single drink from it. Real knowledge comes at a cost, and the same is true for any stochastic system where you can't just eyeball a few outputs and know which variant is better: an LLM prompt, a randomized algorithm, a noisy benchmark, a policy.</p>
+            <p>mimir is an experiment harness for those systems. You describe an experiment in a YAML file (a few variants, a dataset, how many samples). mimir runs it and then tells you whether the difference you see is real: paired bootstrap confidence intervals, a sign-flip p-value, a power estimate, multiple-comparison correction when there are more than two arms, and a report card on the LLM judge itself.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Why</span></h2>
+        <div class="sec__body">
+          <p>The failure mode this is built for will be familiar to anyone who has tuned prompts. You change a system prompt, rerun the eval, the score moves two points, and you ship it. With sampled outputs, the noise between runs is often larger than the effect you're chasing, and if an LLM is grading the outputs it brings its own position and length biases along for the ride.</p>
+          <p>mimir makes you say up front what you expect to happen, then gives you the statistics to know whether it did.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>How it works</span></h2>
+        <div class="sec__body">
+          <p>Runs append to a SQLite file in the current directory. Responses are cached by content, so re-running a spec only executes what changed, and analysis is a pure read of the store.</p>
+          <p>Comparisons are paired per item: for every dataset item, the score of one variant minus the score of the other. The confidence interval comes from a bootstrap over items (10,000 resamples) and the p-value from a sign-flip permutation test. Up to 16 items the sign-flip is exhaustive, all 65,536 patterns, which happens to be the small-n regime where Monte Carlo error would be worst. The report also estimates how many more items you'd need to reach 80% power, and splits the variance into item effect versus replicate noise, which answers the practical question of whether to collect more items or more samples per item. Multi-arm runs get Holm or Benjamini-Hochberg correction over every pairwise comparison.</p>
+          <p>If a spec declares a hypothesis and an analysis plan, mimir prints a sha256 of the hypothesis, plan and design when the run starts. That's the preregistration. You can show afterwards that the analysis wasn't picked after looking at the data.</p>
+          <p><code>audit-judge</code> turns the same machinery on the judge. It reports position bias (does the judge prefer whichever answer it sees first) and length bias (does it prefer longer answers), and it can compare two judge runs against each other.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Beyond LLMs</span></h2>
+        <div class="sec__body">
+          <p>A condition doesn't have to be an LLM call. A subprocess condition is any program that takes a seed and prints a score, so the same harness compares seeded algorithms. The bundled non-LLM example pre-registers the hypothesis that simulated annealing beats random-restart hill climbing on seeded knapsack instances, runs 192 samples with no API key, and analyzes the result with the same paired bootstrap.</p>
+<pre class="code">$ uv run mimir run examples/non_llm/experiment.yaml --db knap.db
+run 20260804-021035-6678 complete
+samples: 192 (0 errors) | judgments: 192 (0 errors)
+preregistered: 717a237bb2f1...   &lt;- sha256 of the hypothesis + analysis plan + design
+
+$ uv run mimir analyze 20260804-021035-6678 --db knap.db</pre>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>CLI</span></h2>
+        <div class="sec__body">
+          <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><code>mimir run SPEC [--db PATH] [--mock]</code></td><td>run the experiment and its judge or scorer, if configured; prints the preregistration hash for planned specs</td></tr>
+              <tr><td><code>mimir analyze RUN_ID [--html] [--correction bh|holm]</code></td><td>paired-bootstrap stats report, optionally as a self-contained HTML file</td></tr>
+              <tr><td><code>mimir audit-judge RUN_ID [--compare RUN_ID]</code></td><td>judge reliability report card</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <p>Exit codes: 0 on success, 1 for domain errors (bad spec, missing files, missing API key, a failed run), 2 for usage errors. Reports go to stdout; warnings go to stderr.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec__title"><span>Status</span></h2>
+        <div class="sec__body">
+          <p>Version 0.1.0. Not on PyPI yet, so install from source with uv. Python 3.12 or newer. Four runtime dependencies: httpx, pydantic, pyyaml and numpy.</p>
+<pre class="code">git clone https://github.com/ericxu88/mimir.git &amp;&amp; cd mimir
+uv sync
+uv run mimir run examples/quickstart.yaml --mock     # offline, canned client
+uv run mimir run examples/judged.yaml                # needs ANTHROPIC_API_KEY
+uv run mimir analyze &lt;run-id&gt; --html</pre>
+        </div>
+      </section>
+
+      <p class="paper__foot"><a href="../projects.html">&larr; All projects</a></p>
+
+    </main>
+  </div>
+</body>
+</html>
