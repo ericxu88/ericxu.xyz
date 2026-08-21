@@ -36,114 +36,138 @@
         </p>
       </header>
 
-      <section class="paper__hero">
-        <figure class="fig">
-<pre class="code">inference stream (normal priority)
-  forward() -> copy into ring -> event
-                                  |
-                      wait on event
-                                  v
-monitor stream (low priority)
-  detector kernels -> few floats
-  async D2H every K steps
-  CPU thread: windows, Page-Hinkley
-  / CUSUM -> Prometheus / OTel</pre>
-          <figcaption>Two CUDA streams. <code>observe()</code> runs on the inference thread and only enqueues work; there is no <code>.item()</code>, <code>.cpu()</code> or <code>synchronize()</code> anywhere on that path.</figcaption>
-        </figure>
-        <div>
-          <h2 class="hero__title"><span>Abstract</span></h2>
-          <div class="sec__body">
-            <p>GUARD watches a serving model for distribution shift without labels and without taking outputs off the GPU. Detector kernels run on a separate low-priority CUDA stream, so they execute in whatever SM capacity inference leaves idle, and only a few floats per step cross to the host, batched and asynchronous.</p>
-            <p>It compares live behaviour against a baseline computed offline from known-good data, and raises an alert when an online change-point test decides the departure is real rather than noise. It attaches to an existing PyTorch model through a forward hook. The weights are never touched.</p>
-          </div>
+      <section class="sec sec--hero">
+        <div class="col-wide block">
+          <figure class="fig">
+            <svg class="diagram" viewBox="0 0 420 150" role="img" aria-label="The inference stream copies outputs into a ring buffer and signals an event; a low-priority monitor stream waits on it, runs detectors, and sends a few floats to the host every K steps">
+              <defs>
+                <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="currentColor"/></marker>
+              </defs>
+              <g font-family="Courier Prime, Courier New, monospace" font-size="10" letter-spacing="1" fill="currentColor">
+                <text x="0" y="10">INFERENCE STREAM</text>
+                <text x="0" y="92">MONITOR STREAM (LOW PRIORITY)</text>
+              </g>
+              <g fill="#fff" stroke="currentColor" stroke-width="1">
+                <rect x="0.5" y="20.5" width="95" height="26"/>
+                <rect x="112.5" y="20.5" width="98" height="26"/>
+                <rect x="227.5" y="20.5" width="104" height="26"/>
+                <rect x="112.5" y="102.5" width="98" height="26"/>
+                <rect x="227.5" y="102.5" width="78" height="26"/>
+                <rect x="322.5" y="102.5" width="97" height="26"/>
+              </g>
+              <g font-family="Courier Prime, Courier New, monospace" font-size="11" fill="currentColor" text-anchor="middle">
+                <text x="48" y="37">forward()</text>
+                <text x="161.5" y="37">copy to ring</text>
+                <text x="279.5" y="37">next forward()</text>
+                <text x="161.5" y="119">wait on event</text>
+                <text x="266.5" y="119">detectors</text>
+                <text x="371" y="119">host, every K</text>
+              </g>
+              <g stroke="currentColor" stroke-width="1" fill="none" marker-end="url(#arr)">
+                <line x1="96" y1="33.5" x2="110" y2="33.5"/>
+                <line x1="211" y1="33.5" x2="225" y2="33.5"/>
+                <line x1="211" y1="115.5" x2="225" y2="115.5"/>
+                <line x1="306" y1="115.5" x2="320" y2="115.5"/>
+                <line x1="161.5" y1="47" x2="161.5" y2="100" stroke-dasharray="3 3"/>
+              </g>
+              <text x="168" y="77" font-family="Courier Prime, Courier New, monospace" font-size="10" fill="currentColor">event: slot captured</text>
+            </svg>
+            <figcaption>observe() only enqueues work. Nothing on the inference thread syncs, blocks, or copies to the host.</figcaption>
+          </figure>
+        </div>
+        <div class="col prose">
+          <h2 class="h2"><span class="num">00</span>Abstract</h2>
+          <p>GUARD watches a serving model for distribution shift without labels and without moving outputs off the GPU. Detector kernels run on a second, low-priority CUDA stream and use whatever SM capacity inference leaves idle. A few floats per step reach the host, batched and asynchronous.</p>
+          <p>Live behaviour is compared against a baseline built offline from known-good data. An online change-point test decides when a departure is real. It attaches to an existing model through a forward hook; the weights are never touched.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2 class="sec__title"><span>Why</span></h2>
-        <div class="sec__body">
-          <p>Models in production degrade quietly. Inputs drift, the mix of predicted classes shifts, individual predictions get less confident, and the serving dashboards look fine the whole time because the model still returns something.</p>
-          <p>The usual ways of catching this each have a problem. Copying logits and embeddings to the CPU and computing metrics there puts latency and host memory pressure on the request path. Sampling one percent of traffic misses rare anomalies, which are the point. Nightly batch jobs over logged outputs find drift hours late and need every output stored. GUARD computes on every output, in real time, on the device the data already lives on. The design target is a p99 latency increase under 2%, and the repo includes the Nsight harness to verify the overlap instead of assuming it.</p>
+        <div class="col prose">
+          <h2 class="h2"><span class="num">01</span>Why</h2>
+          <h3 class="h3">The usual options cost latency, coverage, or time</h3>
+          <p>Models degrade quietly. CPU-side monitoring puts latency on the request path, sampling misses the rare anomalies that matter, and nightly jobs find drift hours late. GUARD computes on every output, on the device the data already lives on. The target is under 2% added p99 latency, verified with Nsight rather than assumed.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2 class="sec__title"><span>What it detects</span></h2>
-        <div class="sec__body">
+        <div class="col prose">
+          <h2 class="h2"><span class="num">02</span>What it detects</h2>
+        </div>
+        <div class="col-wide block">
           <div class="tbl-wrap">
           <table class="tbl">
-            <thead><tr><th>Signal</th><th>Failure mode</th></tr></thead>
+            <thead><tr><th>Signal</th><th>Catches</th></tr></thead>
             <tbody>
-              <tr><td>Shannon entropy: window mean, tail quantile, distance to the baseline histogram</td><td>Confidence collapse, per-sample OOD</td></tr>
-              <tr><td>KL and JS divergence against the baseline class distribution</td><td>Prior / label shift</td></tr>
-              <tr><td>Mahalanobis distance, streaming mean and covariance drift</td><td>Covariate shift</td></tr>
+              <tr><td>Shannon entropy: window mean, tail quantile, distance to the baseline histogram</td><td>confidence collapse, per-sample OOD</td></tr>
+              <tr><td>KL and JS divergence against the baseline class distribution</td><td>label shift</td></tr>
+              <tr><td>Mahalanobis distance, streaming mean and covariance drift</td><td>covariate shift</td></tr>
             </tbody>
           </table>
           </div>
-          <p>Each metric stream feeds an online change-point test, Page-Hinkley or CUSUM, with debounce and cooldown, so a single odd batch doesn't page anyone. Thresholds are keyed by metric name and have to be calibrated against your own clean traffic; the shipped values are illustrative and the runbook has a procedure for it.</p>
+        </div>
+        <div class="col prose">
+          <h3 class="h3">Change-point tests, not single-batch thresholds</h3>
+          <p>Each metric stream feeds a Page-Hinkley or CUSUM test with debounce and cooldown. One odd batch doesn't page anyone. Thresholds are per model and get calibrated on your own clean traffic; the runbook has the procedure.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2 class="sec__title"><span>How it works</span></h2>
-        <div class="sec__body">
-          <p>The part that took the most care is the ring-buffer copy. It's issued on the inference stream, not the monitor stream. <code>record_stream</code> alone isn't enough here: it defers reuse of memory the caching allocator frees, but CUDA-graph replay, <code>torch.compile(mode="reduce-overhead")</code>, TensorRT bindings and pre-allocated <code>out=</code> buffers all rewrite the same addresses every iteration without the allocator being involved. Copying in the caller's stream orders the capture against both the forward pass and the next overwrite. Inference pays two small device-to-device copies for that guarantee.</p>
-          <p>Slot reuse works the other way around: the inference stream waits on the slot's completion event before overwriting it. At the default ring depth that event has long since completed, so the wait is free in practice.</p>
-          <p>Detector kernels read from the ring on the low-priority stream, write a few floats into a summary buffer, and every K steps the summaries go to the host asynchronously through a fixed pool of pinned buffers. A CPU aggregation thread keeps the windows, runs the change-point tests, and exports to Prometheus or OpenTelemetry. Baselines are versioned artifacts bound to a model version, checksummed on write and verified on load.</p>
+        <div class="col prose">
+          <h2 class="h2"><span class="num">03</span>How it works</h2>
+          <h3 class="h3">The capture copy runs on the inference stream</h3>
+          <p><code>record_stream</code> isn't enough on its own: CUDA-graph replay, <code>torch.compile</code> in reduce-overhead mode, TensorRT bindings and <code>out=</code> buffers all rewrite the same addresses without the allocator's involvement. Copying in the caller's stream orders the capture against both the forward pass and the next overwrite, for the price of two small device-to-device copies.</p>
+          <h3 class="h3">A few floats leave the GPU every K steps</h3>
+          <p>A ring slot is reused only after its completion event, which at the default depth finished long ago. Detectors write a few floats to a summary buffer; every K steps those cross to the host through pinned memory, where a CPU thread keeps the windows, runs the change-point tests and exports to Prometheus or OpenTelemetry.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2 class="sec__title"><span>Failure isolation</span></h2>
-        <div class="sec__body">
-          <p>Monitoring is best-effort and cannot affect serving. That is a rule, not a hope.</p>
+        <div class="col prose">
+          <h2 class="h2"><span class="num">04</span>Failure isolation</h2>
+          <h3 class="h3">Monitoring can never affect serving</h3>
           <ul>
-            <li>Every detector call runs behind an exception firewall. A detector that raises is logged once and disabled after N failures; its metric column becomes NaN and the aggregator skips it. <code>forward()</code> returns normally.</li>
-            <li>Fixed ring buffer, fixed baselines, fixed pool of pinned host buffers. Nothing allocates per request.</li>
-            <li>When the export path falls behind, summaries are dropped and counted. Backpressure is never applied to inference.</li>
-            <li>Malformed input (wrong shape, wrong device, oversized batch, active graph capture) is dropped and counted.</li>
-            <li>Kill switch: <code>GUARD_DISABLED=1</code> in the environment, or <code>monitor.disable()</code> at runtime.</li>
+            <li>Every detector runs behind an exception firewall and is disabled after N failures. <code>forward()</code> returns normally.</li>
+            <li>Fixed ring, fixed baselines, fixed pool of pinned buffers. Nothing allocates per request.</li>
+            <li>If export falls behind, summaries are dropped and counted. Inference is never backpressured.</li>
+            <li>Kill switch: <code>GUARD_DISABLED=1</code>, or <code>monitor.disable()</code> at runtime.</li>
           </ul>
         </div>
       </section>
 
       <section class="sec">
-        <h2 class="sec__title"><span>Usage</span></h2>
-        <div class="sec__body">
-<pre class="code">from guard import Config, GuardModule, PrometheusExporter, build_monitor, load
+        <div class="col prose">
+          <h2 class="h2"><span class="num">05</span>Usage</h2>
+        </div>
+        <div class="col-wide block">
+<pre class="code">baseline = load("baselines/vit-b16.guard", expected_model_version="vit-b16@abc123")
+monitor  = build_monitor(baseline, Config.from_yaml("guard.yaml"), device="cuda",
+                         sink=PrometheusExporter())
+model    = GuardModule(model, monitor, embed_layer="encoder.ln", embed_reduce="cls")
 
-baseline = load("baselines/vit-b16.guard", expected_model_version="vit-b16@abc123")
-config   = Config.from_yaml("guard.yaml")
-exporter = PrometheusExporter()
-
-monitor = build_monitor(baseline, config, max_batch=64, device="cuda", sink=exporter)
-exporter.start_http_server(config.export.prometheus_port)
-
-model = GuardModule(model, monitor, embed_layer="encoder.ln", embed_reduce="cls")
-
-logits = model(images)     # monitored; same output, same code path</pre>
-          <p><code>GuardModule</code> registers a forward hook on the named layer to capture the penultimate embedding and reads logits from the return value. If you drive the loop yourself, skip the wrapper and call <code>monitor.observe(logits, embeddings)</code> after <code>forward()</code>. A baseline is built offline from an iterable of (logits, embeddings) batches; calibrate on substantially more samples than the embedding dimension or the reference covariance is ill-conditioned.</p>
-          <p>GUARD runs in-process with the inference server. There is no GUARD service and nothing of GUARD's on the request path. One monitor per device, metrics per process, so scrape per-pod endpoints. The <code>deploy/</code> directory has a reference Dockerfile, Kubernetes manifests, a Grafana dashboard and Alertmanager rules.</p>
+logits = model(images)     # same output, same code path, now monitored</pre>
+        </div>
+        <div class="col prose">
+          <p>Runs in-process with the inference server: no GUARD service, nothing on the request path, one monitor per device. <code>deploy/</code> has a Dockerfile, Kubernetes manifests, a Grafana dashboard and Alertmanager rules.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2 class="sec__title"><span>Testing and benchmarks</span></h2>
-        <div class="sec__body">
-          <p>480 tests run without a GPU and 18 run on hardware. The stream and event layer degrades to no-ops off CUDA, so slot rotation, drain batching, buffer exhaustion, failure isolation and concurrency are all covered by the CPU suite. One test drives the engine through a recording stand-in for <code>torch.cuda</code> and asserts the ordering contract the memory-safety argument depends on. Detectors are checked against independent NumPy references and property-tested with Hypothesis, and a drift-injection test runs clean, gradual, abrupt, recovery and asserts that alerts both fire and clear.</p>
-          <p>Overhead depends on how much SM capacity inference leaves idle, so it has to be measured on your model and your hardware. <code>ab_latency.py</code> reports p50, p95 and p99 deltas with GUARD off and on, timed with CUDA events in interleaved A/B blocks, and exits non-zero if the overhead exceeds an SLO, so it can gate CI. <code>saturation.py</code> sweeps batch size to show where the overlap stops being free, and <code>nsight_overlap.sh</code> captures the timeline that confirms monitor kernels interleave with inference rather than serialising after it.</p>
+        <div class="col prose">
+          <h2 class="h2"><span class="num">06</span>Testing</h2>
+          <h3 class="h3">498 tests; overhead is measured, not assumed</h3>
+          <p>480 tests run on CPU and 18 on hardware. Detectors are checked against NumPy references and property-tested with Hypothesis; a drift-injection test runs clean, gradual, abrupt, recovery and checks that alerts fire and clear. <code>ab_latency.py</code> reports p50, p95 and p99 deltas with GUARD off and on, and fails CI past an SLO. <code>nsight_overlap.sh</code> captures the timeline showing monitor kernels interleaving with inference.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2 class="sec__title"><span>Limitations</span></h2>
-        <div class="sec__body">
+        <div class="col prose">
+          <h2 class="h2"><span class="num">07</span>Limitations</h2>
           <ul>
-            <li>Drift is not accuracy loss. GUARD detects behavioural change, which usually but not always means degradation. Pair it with periodic labelled evaluation.</li>
-            <li>A stale baseline alarms on legitimate evolution; a too-fresh one masks real drift. Re-baselining is a human-approved workflow, not an automatic one.</li>
-            <li>The change-point tests are one-sided. They catch metrics rising, which is the direction drift moves them. A shift that reduces entropy will not trip the entropy test.</li>
-            <li>Observations during CUDA graph capture are dropped. Per-step hooks can't fire inside a captured graph.</li>
-            <li>Not implemented: Triton and TorchServe adapters, ADWIN, MMD with random Fourier features, multi-GPU validation.</li>
+            <li>Drift is not accuracy loss. Pair it with periodic labelled evaluation.</li>
+            <li>The change-point tests are one-sided; a shift that lowers entropy won't trip the entropy test.</li>
+            <li>Observations during CUDA graph capture are dropped.</li>
+            <li>Not yet: Triton and TorchServe adapters, ADWIN, MMD, multi-GPU validation.</li>
           </ul>
         </div>
       </section>
