@@ -16,7 +16,7 @@
   <div class="page page--top">
 
     <nav class="nav" aria-label="Links">
-      <a class="nav__link" href="/">Home</a>
+      <a class="nav__link" href="/">Eric Xu</a>
       <a class="nav__link nav__link--current" href="projects.html" aria-current="page">Projects</a>
       <a class="nav__link" href="https://github.com/ericxu88" target="_blank" rel="noopener">GitHub</a>
       <a class="nav__link" href="https://linkedin.com/in/ericxu88" target="_blank" rel="noopener">LinkedIn</a>
@@ -29,14 +29,14 @@
         <p class="projects__note">Source linked where public.</p>
       </header>
 
-      <!-- EDIT: one <li class="project"> per project. Keep descriptions to one line. -->
+      <!-- EDIT: one <li class="project"> per project. -->
       <ol class="projects__list">
 
         <li class="project">
-          <div class="project__meta"><span>Output 01</span><span>2026</span></div>
+          <div class="project__meta"><span>01</span><span>2026</span></div>
           <div class="project__body">
             <h2 class="project__name"><a href="projects/sregym.html">SREGym</a></h2>
-            <p class="project__desc">Gym for on-call agents: every seed generates a new broken production world with ground-truth verifiable rewards.</p>
+            <p class="project__desc">Every seed builds a small production stack on disk, quietly breaks it, and pages an LLM agent about the outage. A deterministic verifier checks whether the agent actually fixed the root cause, so nothing here is graded by another model.</p>
           </div>
           <div class="project__links">
             <a href="https://github.com/ericxu88/SREGym" target="_blank" rel="noopener">GitHub</a>
@@ -45,10 +45,10 @@
         </li>
 
         <li class="project">
-          <div class="project__meta"><span>Output 02</span><span>2026</span></div>
+          <div class="project__meta"><span>02</span><span>2026</span></div>
           <div class="project__body">
             <h2 class="project__name"><a href="projects/guard.html">GUARD</a></h2>
-            <p class="project__desc">GPU-native, unsupervised drift and anomaly monitoring for PyTorch inference. No labels, and nothing leaves the GPU.</p>
+            <p class="project__desc">Models degrade quietly, and most ways of noticing cost you latency. GUARD watches a serving PyTorch model for drift without labels and without moving anything off the GPU, running its detectors on a spare CUDA stream that uses whatever inference leaves idle.</p>
           </div>
           <div class="project__links">
             <a href="https://github.com/ericxu88/GUARD" target="_blank" rel="noopener">GitHub</a>
@@ -56,10 +56,10 @@
         </li>
 
         <li class="project">
-          <div class="project__meta"><span>Output 03</span><span>2026</span></div>
+          <div class="project__meta"><span>03</span><span>2026</span></div>
           <div class="project__body">
             <h2 class="project__name"><a href="projects/mimir.html">mimir</a></h2>
-            <p class="project__desc">Statistically rigorous experiment harness for LLMs and other stochastic systems: pre-registered, paired, and honest about noise.</p>
+            <p class="project__desc">You tweak a prompt, the score goes up two points, and you have no idea whether that was real. mimir makes you write the hypothesis down first, then runs the paired bootstrap and tells you if the difference survives the noise. It audits the LLM judge too.</p>
           </div>
           <div class="project__links">
             <a href="https://github.com/ericxu88/mimir" target="_blank" rel="noopener">GitHub</a>
@@ -67,10 +67,10 @@
         </li>
 
         <li class="project">
-          <div class="project__meta"><span>Output 04</span><span>2026</span></div>
+          <div class="project__meta"><span>04</span><span>2026</span></div>
           <div class="project__body">
             <h2 class="project__name"><a href="projects/origin.html">Origin</a></h2>
-            <p class="project__desc">Interpretable detection, localization, and explanation of LLM-generated text, down to the sentence.</p>
+            <p class="project__desc">Works out whether a piece of writing came from a person, a model, or both, and points at the specific sentences behind the call. Instead of one opaque score you get the evidence: perplexity, burstiness, and about forty other features you can actually read.</p>
           </div>
           <div class="project__links">
             <a href="https://github.com/ericxu88/origin" target="_blank" rel="noopener">GitHub</a>
@@ -78,10 +78,10 @@
         </li>
 
         <li class="project">
-          <div class="project__meta"><span>Output 05</span><span>2025-26</span></div>
+          <div class="project__meta"><span>05</span><span>2025-26</span></div>
           <div class="project__body">
             <h2 class="project__name"><a href="https://www.relaydev.ai" target="_blank" rel="noopener">Relay</a></h2>
-            <p class="project__desc">Control plane for AI agents: detection, interdiction, and recovery for actions already in motion.</p>
+            <p class="project__desc">A control plane for agents that have already started doing something. Relay catches the action while it is still in motion, steps in before it lands, and cleans up after the ones that get through.</p>
           </div>
           <div class="project__links">
             <a href="https://www.relaydev.ai" target="_blank" rel="noopener">Site</a>
@@ -89,14 +89,25 @@
         </li>
 
         <li class="project">
-          <div class="project__meta"><span>Paper</span><span>2026</span></div>
+          <div class="project__meta"><span>06</span><span>2026</span></div>
           <div class="project__body">
-            <h2 class="project__name"><a href="https://github.com/Hazel-Heejeong-Nam/lam_agent_ambiguity" target="_blank" rel="noopener">Latent Actions from Factorized Transition Effects under Agent Ambiguity</a></h2>
+            <h2 class="project__name"><a href="https://arxiv.org/abs/2606.30544" target="_blank" rel="noopener">Latent Actions from Factorized Transition Effects under Agent Ambiguity</a></h2>
             <p class="project__desc">Nam, Jonnalagadda, Aggarwal, Xu, Balestriero. ICML Workshop on Compositional Learning, 2026.</p>
           </div>
           <div class="project__links">
             <a href="https://github.com/Hazel-Heejeong-Nam/lam_agent_ambiguity" target="_blank" rel="noopener">Code</a>
-            <a href="https://scholar.google.com/citations?user=xnSDXe4AAAAJ" target="_blank" rel="noopener">Scholar</a>
+            <a href="https://arxiv.org/abs/2606.30544" target="_blank" rel="noopener">Paper</a>
+          </div>
+        </li>
+
+        <li class="project">
+          <div class="project__meta"><span>07</span><span>2023</span></div>
+          <div class="project__body">
+            <h2 class="project__name"><a href="https://pubmed.ncbi.nlm.nih.gov/37375110/" target="_blank" rel="noopener">In Silico Identification and In Vitro Validation of Repurposed Compounds Targeting the RSV Polymerase</a></h2>
+            <p class="project__desc">Xu, Park, Calderon, Cao, Liang. Microorganisms 11(6), 2023. Docked 6,554 clinical-stage compounds against the RSV polymerase, then took the best of them to the bench: Micafungin, an antifungal already on the market, out-bound the existing inhibitors and held up in an in vitro transcription assay.</p>
+          </div>
+          <div class="project__links">
+            <a href="https://pubmed.ncbi.nlm.nih.gov/37375110/" target="_blank" rel="noopener">Paper</a>
           </div>
         </li>
 
